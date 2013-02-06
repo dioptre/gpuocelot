@@ -1,0 +1,80 @@
+#
+# SConstruct file for building trace generators
+#
+
+import subprocess
+
+#
+#
+#
+def getOcelotPaths():
+	"""returns (ocelotIncludePath, ocelotLibPath, ocelotBinPath)"""
+	results = []
+	for arg in ('-i', '-L', '-b'):
+		ocelotConfig = subprocess.Popen(['/usr/local/bin/OcelotConfig', arg], stdout = subprocess.PIPE)
+		results.append(ocelotConfig.stdout.readline()[:-2])
+	return results
+
+
+ocelotIncludePath, ocelotLibPath, ocelotBinPath = getOcelotPaths()
+
+#
+#
+#
+
+env = Environment()
+env.Append(CPPPATH = [ocelotIncludePath, '.'])
+env.Append(CXXFLAGS = ['-std=c++0x'])
+
+sources = (
+	"traces/implementation/BranchTraceGenerator.cpp",
+	"traces/implementation/ParallelismTraceGenerator.cpp",
+	"traces/implementation/SharedComputationGenerator.cpp",
+	"traces/implementation/MemoryTraceGenerator.cpp",
+	"traces/implementation/CacheSimulator.cpp",
+	"traces/implementation/InstructionTraceGenerator.cpp",
+	"traces/implementation/WarpSynchronousGenerator.cpp",
+	"traces/implementation/PerformanceBoundGenerator.cpp",
+	"traces/implementation/ConvergenceGenerator.cpp",
+	"traces/implementation/TraceConfiguration.cpp",
+	"traces/implementation/LoadBalanceGenerator.cpp",
+	"traces/implementation/KernelEntry.cpp",
+	"traces/implementation/ControlFlowVisualizer.cpp",
+	"traces/implementation/BasicBlockCountGenerator.cpp",
+	"traces/implementation/X86TraceGenerator.cpp",
+	"traces/implementation/TemporalSIMTGenerator.cpp",
+	"traces/implementation/ActivityFactorGenerator.cpp"
+)
+trace_dep_libs = ['libboost_filesystem-mt', 'boost_system-mt', 'boost_serialization-mt', 'z', 'pthread']
+libocelotTrace = env.SharedLibrary('ocelotTrace', sources, LIBS=trace_dep_libs)
+libocelotStaticTrace = env.StaticLibrary('ocelotTrace', sources)
+
+#
+#
+#
+
+applicationLibs = [libocelotTrace, 'ocelot', 'libboost_filesystem-mt', 'boost_system-mt', 'boost_serialization-mt', 'z', 'pthread']
+
+#
+#
+#
+applications = [
+	('MemoryTraceAnalyzer', ['traces/implementation/MemoryTraceAnalyzer.cpp',]),
+	('ParallelismTraceAnalyzer', ['traces/implementation/ParallelismTraceAnalyzer.cpp',]),
+	('InstructionTraceAnalyzer', ['traces/implementation/InstructionTraceAnalyzer.cpp',]),
+	('BranchTraceAnalyzer', ['traces/implementation/BranchTraceAnalyzer.cpp',]),
+	('SharedComputationAnalyzer', ['traces/implementation/SharedComputationAnalyzer.cpp',]),
+]
+for application in applications:
+	env.Program(application[0], application[1], LIBS=applicationLibs)
+
+
+#
+#
+#
+if 'install' in COMMAND_LINE_TARGETS:
+	print 'Installing libOcelotTrace'
+	
+	env.Install(ocelotLibPath, [libocelotTrace, libocelotStaticTrace])
+	env.Alias('install', ocelotLibPath)
+
